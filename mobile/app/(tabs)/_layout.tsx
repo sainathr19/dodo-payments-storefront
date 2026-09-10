@@ -28,13 +28,17 @@ export default function TabsLayout() {
         headerStyle: { backgroundColor: tokens.color.bg },
         headerTintColor: tokens.color.text,
         headerShadowVisible: false,
+        headerTitleStyle: { ...tokens.text.heading, color: tokens.color.text },
         tabBarStyle: {
           backgroundColor: tokens.color.surface,
           borderTopColor: tokens.color.border,
+          borderTopWidth: 1,
+          height: 88,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: tokens.color.accent,
         tabBarInactiveTintColor: tokens.color.textDim,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '500' },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', letterSpacing: -0.1 },
         sceneStyle: { backgroundColor: tokens.color.bg },
       }}
     >

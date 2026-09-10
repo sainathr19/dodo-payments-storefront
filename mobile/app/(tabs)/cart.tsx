@@ -1,15 +1,17 @@
 import { Image } from 'expo-image';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { CartItem, Product } from '../../src/api/types';
 import { Button } from '../../src/components/Button';
+import { Card } from '../../src/components/Card';
 import { EmptyState } from '../../src/components/EmptyState';
 import { Screen } from '../../src/components/Screen';
 import { checkoutReturnUrl, startCheckout } from '../../src/lib/checkout';
+import { productImage } from '../../src/lib/images';
 import { cartSubtotalCents, formatMoney } from '../../src/lib/money';
 import { useSession } from '../../src/state/session';
-import { productImage } from '../../src/lib/images';
 import { tokens } from '../../src/theme/tokens';
 
 export default function Cart() {
@@ -38,6 +40,7 @@ export default function Cart() {
         <EmptyState
           title="Your cart is empty"
           body="Browse the store and add a pack to get started."
+          icon="bag-outline"
         />
       </Screen>
     );
@@ -45,88 +48,102 @@ export default function Cart() {
 
   return (
     <Screen>
-      {lines.map(({ item, product }) => (
-        <View
-          key={item.productId}
-          style={{
-            flexDirection: 'row',
-            gap: tokens.space.md,
-            backgroundColor: tokens.color.surface,
-            borderRadius: tokens.radius.md,
-            padding: tokens.space.md,
-            marginBottom: tokens.space.md,
-            alignItems: 'center',
-          }}
-        >
-          <Image
-            source={productImage(product)}
+      <Card padded={false} style={{ marginBottom: tokens.space.xl, overflow: 'hidden' }}>
+        {lines.map(({ item, product }, i) => (
+          <View
+            key={item.productId}
             style={{
-              width: 56,
-              height: 56,
-              borderRadius: tokens.radius.sm,
-              backgroundColor: tokens.color.surfaceHigh,
+              flexDirection: 'row',
+              gap: tokens.space.lg,
+              padding: tokens.space.lg,
+              alignItems: 'center',
+              borderTopWidth: i === 0 ? 0 : 1,
+              borderTopColor: tokens.color.border,
             }}
-            contentFit="cover"
-          />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{ ...tokens.text.label, fontSize: 15, color: tokens.color.text }}
-              numberOfLines={1}
-            >
-              {product.name}
-            </Text>
-            <Text style={{ ...tokens.text.body, fontSize: 13, color: tokens.color.textDim }}>
-              {formatMoney(product.priceCents, product.currency)} x {item.quantity}
-            </Text>
+          >
+            <Image
+              source={productImage(product)}
+              style={{
+                width: 60,
+                height: 60,
+                borderRadius: tokens.radius.md,
+                backgroundColor: tokens.color.surfaceAlt,
+              }}
+              contentFit="cover"
+            />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{ ...tokens.text.label, fontSize: 15, color: tokens.color.text }}
+                numberOfLines={1}
+              >
+                {product.name}
+              </Text>
+              <Text
+                style={{
+                  ...tokens.text.body,
+                  fontSize: 13,
+                  color: tokens.color.textDim,
+                  marginTop: 2,
+                }}
+              >
+                {formatMoney(product.priceCents, product.currency)} · qty {item.quantity}
+              </Text>
+            </View>
+            <Pressable onPress={() => void remove(item.productId)} hitSlop={12}>
+              <Ionicons name="close-circle" size={22} color={tokens.color.textFaint} />
+            </Pressable>
           </View>
-          <Pressable onPress={() => void remove(item.productId)} hitSlop={12}>
-            <Text style={{ color: tokens.color.danger, ...tokens.text.label }}>Remove</Text>
-          </Pressable>
-        </View>
-      ))}
-
-      <TextInput
-        value={promo}
-        onChangeText={setPromo}
-        placeholder="Promo code"
-        placeholderTextColor={tokens.color.textDim}
-        autoCapitalize="characters"
-        style={{
-          backgroundColor: tokens.color.surface,
-          borderWidth: 1,
-          borderColor: tokens.color.border,
-          borderRadius: tokens.radius.md,
-          paddingHorizontal: tokens.space.lg,
-          paddingVertical: tokens.space.md,
-          color: tokens.color.text,
-          marginTop: tokens.space.lg,
-        }}
-      />
+        ))}
+      </Card>
 
       <View
         style={{
           flexDirection: 'row',
-          justifyContent: 'space-between',
-          marginTop: tokens.space.xl,
-          marginBottom: tokens.space.lg,
+          alignItems: 'center',
+          backgroundColor: tokens.color.surface,
+          borderRadius: tokens.radius.md + 2,
+          paddingHorizontal: tokens.space.lg,
+          borderWidth: 1,
+          borderColor: tokens.color.border,
+          marginBottom: tokens.space.xl,
         }}
       >
-        <Text style={{ ...tokens.text.heading, color: tokens.color.textDim }}>Subtotal</Text>
-        <Text style={{ ...tokens.text.heading, color: tokens.color.text }}>
-          {formatMoney(subtotal, currency)}
-        </Text>
+        <Ionicons name="pricetag-outline" size={17} color={tokens.color.textFaint} />
+        <TextInput
+          value={promo}
+          onChangeText={setPromo}
+          placeholder="Promo code"
+          placeholderTextColor={tokens.color.textFaint}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          style={{
+            flex: 1,
+            paddingVertical: 15,
+            paddingLeft: tokens.space.md,
+            color: tokens.color.text,
+            ...tokens.text.label,
+            fontSize: 15,
+          }}
+        />
       </View>
 
-      <Text
-        style={{
-          ...tokens.text.body,
-          fontSize: 12,
-          color: tokens.color.textDim,
-          marginBottom: tokens.space.md,
-        }}
-      >
-        Tax is calculated by Dodo Payments at checkout.
-      </Text>
+      <Card style={{ marginBottom: tokens.space.xl }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          <Text style={{ ...tokens.text.body, color: tokens.color.textDim }}>Subtotal</Text>
+          <Text style={{ ...tokens.text.heading, color: tokens.color.text }}>
+            {formatMoney(subtotal, currency)}
+          </Text>
+        </View>
+        <Text
+          style={{
+            ...tokens.text.caption,
+            color: tokens.color.textFaint,
+            marginTop: tokens.space.sm,
+          }}
+        >
+          Tax is calculated by Dodo Payments at checkout.
+        </Text>
+      </Card>
 
       <Button
         title="Checkout"

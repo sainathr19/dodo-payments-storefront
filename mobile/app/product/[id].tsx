@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { Product } from '../../src/api/types';
+import { Badge } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
 import { EmptyState } from '../../src/components/EmptyState';
-import { PriceTag } from '../../src/components/PriceTag';
 import { Screen } from '../../src/components/Screen';
-import { useSession } from '../../src/state/session';
 import { productImage } from '../../src/lib/images';
+import { formatMoney } from '../../src/lib/money';
+import { useSession } from '../../src/state/session';
 import { tokens } from '../../src/theme/tokens';
 
 export default function ProductDetail() {
@@ -30,7 +31,7 @@ export default function ProductDetail() {
   if (error) {
     return (
       <Screen>
-        <EmptyState title="Not found" body={error} />
+        <EmptyState title="Not found" body={error} icon="help-circle-outline" />
       </Screen>
     );
   }
@@ -54,30 +55,50 @@ export default function ProductDetail() {
           style={{
             width: '100%',
             aspectRatio: 4 / 3,
-            borderRadius: tokens.radius.lg,
-            backgroundColor: tokens.color.surfaceHigh,
+            borderRadius: tokens.radius.xl,
+            backgroundColor: tokens.color.surfaceAlt,
+            ...tokens.shadow.card,
           }}
           contentFit="cover"
-          transition={200}
+          transition={220}
         />
+
+        <View style={{ marginTop: tokens.space.xl }}>
+          <Badge label={product.isRecurring ? 'MEMBERSHIP' : 'DIGITAL DOWNLOAD'} tone="accent" />
+        </View>
+
         <Text
-          style={{ ...tokens.text.title, color: tokens.color.text, marginTop: tokens.space.xl }}
+          style={{ ...tokens.text.title, color: tokens.color.text, marginTop: tokens.space.md }}
         >
           {product.name}
         </Text>
-        <View style={{ marginTop: tokens.space.sm }}>
-          <PriceTag cents={product.priceCents} currency={product.currency} size="lg" />
+
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'baseline',
+            gap: 6,
+            marginTop: tokens.space.sm,
+          }}
+        >
+          <Text style={{ ...tokens.text.display, fontSize: 30, color: tokens.color.accent }}>
+            {formatMoney(product.priceCents, product.currency)}
+          </Text>
+          {product.isRecurring ? (
+            <Text style={{ ...tokens.text.body, color: tokens.color.textDim }}>/ month</Text>
+          ) : null}
         </View>
+
         <Text
           style={{
             ...tokens.text.body,
             color: tokens.color.textDim,
             marginTop: tokens.space.lg,
-            lineHeight: 22,
           }}
         >
           {product.description}
         </Text>
+
         <View style={{ marginTop: tokens.space.xxl }}>
           <Button
             title="Add to cart"
@@ -93,6 +114,17 @@ export default function ProductDetail() {
             }}
           />
         </View>
+
+        <Text
+          style={{
+            ...tokens.text.caption,
+            color: tokens.color.textFaint,
+            textAlign: 'center',
+            marginTop: tokens.space.lg,
+          }}
+        >
+          Secure checkout by Dodo Payments
+        </Text>
       </Screen>
     </>
   );

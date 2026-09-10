@@ -1,14 +1,22 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { Membership, Product } from '../../src/api/types';
-import { Badge } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
-import { PriceTag } from '../../src/components/PriceTag';
+import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
 import { checkoutReturnUrl, startCheckout } from '../../src/lib/checkout';
+import { formatMoney } from '../../src/lib/money';
 import { useSession } from '../../src/state/session';
 import { tokens } from '../../src/theme/tokens';
+
+const PERKS = [
+  'Every pack, the moment it ships',
+  'Early access to new releases',
+  'Commercial licence included',
+  'Cancel any time, keep what you downloaded',
+];
 
 export default function Pro() {
   const { customer } = useSession();
@@ -35,6 +43,8 @@ export default function Pro() {
     try {
       await api.membershipAction(membership.id, action);
       await load();
+    } catch (e) {
+      Alert.alert('Could not update membership', String(e));
     } finally {
       setBusy(false);
     }
@@ -51,64 +61,101 @@ export default function Pro() {
   }
 
   const paused = membership?.status === 'paused';
+  const priceCents = membership?.amountCents ?? product?.priceCents ?? 0;
+  const currency = membership?.currency ?? product?.currency ?? 'USD';
 
   return (
     <Screen>
+      {/* The plan card is the hero: deep accent fill so it reads as the one
+          premium thing on an otherwise light, quiet screen. */}
       <View
         style={{
-          backgroundColor: tokens.color.surface,
-          borderRadius: tokens.radius.lg,
-          borderWidth: 1,
-          borderColor: tokens.color.border,
+          backgroundColor: tokens.color.accent,
+          borderRadius: tokens.radius.xl,
           padding: tokens.space.xl,
+          ...tokens.shadow.card,
         }}
       >
-        <Text style={{ ...tokens.text.title, fontSize: 22, color: tokens.color.text }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: tokens.space.sm }}>
+          <Ionicons name="sparkles" size={17} color="#FFFFFF" />
+          <Text style={{ ...tokens.text.caption, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.6 }}>
+            MEMBERSHIP
+          </Text>
+        </View>
+
+        <Text style={{ ...tokens.text.title, color: '#FFFFFF', marginTop: tokens.space.md }}>
           {product?.name ?? 'Palette Pro'}
         </Text>
-        <Text
-          style={{ ...tokens.text.body, color: tokens.color.textDim, marginTop: tokens.space.sm }}
-        >
-          {product?.description}
-        </Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6, marginTop: tokens.space.sm }}>
+          <Text style={{ ...tokens.text.display, color: '#FFFFFF' }}>
+            {formatMoney(priceCents, currency)}
+          </Text>
+          <Text style={{ ...tokens.text.body, color: 'rgba(255,255,255,0.8)' }}>/ month</Text>
+        </View>
 
         {membership ? (
-          <>
-            <View style={{ marginTop: tokens.space.lg, flexDirection: 'row', gap: tokens.space.sm }}>
-              <Badge label={membership.status} tone={paused ? 'neutral' : 'good'} />
-              {membership.cancelAtPeriodEnd ? <Badge label="ends at period end" tone="bad" /> : null}
-            </View>
-            <View style={{ marginTop: tokens.space.lg }}>
-              <PriceTag
-                cents={membership.amountCents}
-                currency={membership.currency}
-                suffix=" / month"
-                size="lg"
-              />
-            </View>
-            <Text
+          <View style={{ flexDirection: 'row', gap: tokens.space.sm, marginTop: tokens.space.lg }}>
+            <View
               style={{
-                ...tokens.text.body,
-                fontSize: 13,
-                color: tokens.color.textDim,
-                marginTop: tokens.space.sm,
+                backgroundColor: 'rgba(255,255,255,0.2)',
+                paddingHorizontal: tokens.space.md,
+                paddingVertical: 5,
+                borderRadius: tokens.radius.pill,
               }}
             >
-              {membership.cancelAtPeriodEnd ? 'Access ends' : 'Renews'}{' '}
-              {new Date(membership.nextBillingDate).toLocaleDateString()}
-            </Text>
-          </>
-        ) : (
-          <View style={{ marginTop: tokens.space.lg }}>
-            <PriceTag
-              cents={product?.priceCents ?? 0}
-              currency={product?.currency ?? 'USD'}
-              suffix=" / month"
-              size="lg"
-            />
+              <Text style={{ ...tokens.text.caption, color: '#FFFFFF' }}>
+                {membership.status.toUpperCase()}
+              </Text>
+            </View>
+            {membership.cancelAtPeriodEnd ? (
+              <View
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.2)',
+                  paddingHorizontal: tokens.space.md,
+                  paddingVertical: 5,
+                  borderRadius: tokens.radius.pill,
+                }}
+              >
+                <Text style={{ ...tokens.text.caption, color: '#FFFFFF' }}>ENDS AT PERIOD END</Text>
+              </View>
+            ) : null}
           </View>
-        )}
+        ) : null}
+
+        {membership ? (
+          <Text
+            style={{
+              ...tokens.text.body,
+              fontSize: 13,
+              color: 'rgba(255,255,255,0.8)',
+              marginTop: tokens.space.md,
+            }}
+          >
+            {membership.cancelAtPeriodEnd ? 'Access ends' : 'Renews'}{' '}
+            {new Date(membership.nextBillingDate).toLocaleDateString()}
+          </Text>
+        ) : null}
       </View>
+
+      <Card style={{ marginTop: tokens.space.xl }}>
+        {PERKS.map((perk, i) => (
+          <View
+            key={perk}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: tokens.space.md,
+              marginTop: i === 0 ? 0 : tokens.space.md,
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={19} color={tokens.color.accent} />
+            <Text style={{ ...tokens.text.body, fontSize: 14, color: tokens.color.text, flex: 1 }}>
+              {perk}
+            </Text>
+          </View>
+        ))}
+      </Card>
 
       <View style={{ gap: tokens.space.md, marginTop: tokens.space.xl }}>
         {!membership ? (

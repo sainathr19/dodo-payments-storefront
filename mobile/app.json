@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
     },
@@ -27,6 +27,7 @@
       "expo-image",
       "expo-web-browser"
     ],
-    "scheme": "palette"
+    "scheme": "palette",
+    "backgroundColor": "#F6F5F1"
   }
 }

@@ -10,32 +10,48 @@ type Props = {
 };
 
 export function Button({ title, onPress, variant = 'primary', disabled, loading }: Props) {
-  const background = {
-    primary: tokens.color.accent,
-    secondary: tokens.color.surfaceHigh,
-    danger: 'transparent',
+  const style = {
+    primary: {
+      bg: tokens.color.accent,
+      fg: tokens.color.accentText,
+      border: 'transparent',
+      shadow: tokens.shadow.soft,
+    },
+    secondary: {
+      bg: tokens.color.surface,
+      fg: tokens.color.text,
+      border: tokens.color.border,
+      shadow: tokens.shadow.soft,
+    },
+    danger: {
+      bg: tokens.color.dangerSoft,
+      fg: tokens.color.danger,
+      border: 'transparent',
+      shadow: undefined,
+    },
   }[variant];
-  const color = variant === 'danger' ? tokens.color.danger : tokens.color.text;
 
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
       style={({ pressed }) => ({
-        backgroundColor: background,
-        opacity: disabled ? 0.4 : pressed ? 0.8 : 1,
-        paddingVertical: tokens.space.md + 2,
+        backgroundColor: style.bg,
+        opacity: disabled ? 0.45 : 1,
+        transform: [{ scale: pressed ? 0.975 : 1 }],
+        paddingVertical: 15,
         paddingHorizontal: tokens.space.xl,
-        borderRadius: tokens.radius.md,
+        borderRadius: tokens.radius.md + 2,
         alignItems: 'center',
-        borderWidth: variant === 'danger' ? 1 : 0,
-        borderColor: tokens.color.danger,
+        borderWidth: 1,
+        borderColor: style.border,
+        ...(style.shadow ?? {}),
       })}
     >
       {loading ? (
-        <ActivityIndicator color={color} />
+        <ActivityIndicator color={style.fg} />
       ) : (
-        <Text style={{ ...tokens.text.label, fontSize: 15, color }}>{title}</Text>
+        <Text style={{ ...tokens.text.label, fontSize: 15, color: style.fg }}>{title}</Text>
       )}
     </Pressable>
   );
