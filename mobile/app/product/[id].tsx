@@ -9,6 +9,7 @@ import { EmptyState } from '../../src/components/EmptyState';
 import { PriceTag } from '../../src/components/PriceTag';
 import { Screen } from '../../src/components/Screen';
 import { useSession } from '../../src/state/session';
+import { productImage } from '../../src/lib/images';
 import { tokens } from '../../src/theme/tokens';
 
 export default function ProductDetail() {
@@ -49,7 +50,7 @@ export default function ProductDetail() {
       <Stack.Screen options={{ title: product.name, headerBackTitle: 'Store' }} />
       <Screen>
         <Image
-          source={product.image}
+          source={productImage(product)}
           style={{
             width: '100%',
             aspectRatio: 4 / 3,

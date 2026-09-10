@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { Membership, Product } from '../../src/api/types';
 import { Badge } from '../../src/components/Badge';
 import { Button } from '../../src/components/Button';
 import { PriceTag } from '../../src/components/PriceTag';
 import { Screen } from '../../src/components/Screen';
+import { checkoutReturnUrl, startCheckout } from '../../src/lib/checkout';
 import { useSession } from '../../src/state/session';
 import { tokens } from '../../src/theme/tokens';
 
@@ -114,8 +115,18 @@ export default function Pro() {
           <Button
             title="Subscribe"
             loading={busy}
-            onPress={() => {
-              // Task 9 wires this to hosted checkout.
+            onPress={async () => {
+              setBusy(true);
+              try {
+                const { checkout_url } = await api.subscribe(customer.id, checkoutReturnUrl());
+                if (!checkout_url) throw new Error('the backend returned no checkout url');
+                await startCheckout(checkout_url);
+                await load();
+              } catch (e) {
+                Alert.alert('Could not subscribe', String(e));
+              } finally {
+                setBusy(false);
+              }
             }}
           />
         ) : (

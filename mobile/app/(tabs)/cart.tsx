@@ -1,19 +1,22 @@
 import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { CartItem, Product } from '../../src/api/types';
 import { Button } from '../../src/components/Button';
 import { EmptyState } from '../../src/components/EmptyState';
 import { Screen } from '../../src/components/Screen';
+import { checkoutReturnUrl, startCheckout } from '../../src/lib/checkout';
 import { cartSubtotalCents, formatMoney } from '../../src/lib/money';
 import { useSession } from '../../src/state/session';
+import { productImage } from '../../src/lib/images';
 import { tokens } from '../../src/theme/tokens';
 
 export default function Cart() {
-  const { cart, remove, customer } = useSession();
+  const { cart, remove, customer, refreshCart } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [promo, setPromo] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -56,7 +59,7 @@ export default function Cart() {
           }}
         >
           <Image
-            source={product.image}
+            source={productImage(product)}
             style={{
               width: 56,
               height: 56,
@@ -127,9 +130,25 @@ export default function Cart() {
 
       <Button
         title="Checkout"
-        onPress={() => {
-          // Task 9 replaces this with the hosted-checkout flow.
-          console.log('checkout', customer.id, promo);
+        loading={busy}
+        onPress={async () => {
+          setBusy(true);
+          try {
+            const { checkout_url } = await api.checkout(
+              customer.id,
+              promo || undefined,
+              checkoutReturnUrl(),
+            );
+            if (!checkout_url) throw new Error('the backend returned no checkout url');
+            await startCheckout(checkout_url);
+            // The webhook is the authoritative signal and may arrive first, so
+            // the cart is refetched rather than assumed cleared.
+            await refreshCart();
+          } catch (e) {
+            Alert.alert('Checkout failed', String(e));
+          } finally {
+            setBusy(false);
+          }
         }}
       />
     </Screen>

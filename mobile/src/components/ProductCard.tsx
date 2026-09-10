@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import type { Product } from '../api/types';
+import { productImage } from '../lib/images';
 import { tokens } from '../theme/tokens';
 import { PriceTag } from './PriceTag';
 
@@ -20,7 +21,7 @@ export function ProductCard({ product }: { product: Product }) {
         })}
       >
         <Image
-          source={product.image}
+          source={productImage(product)}
           style={{ width: '100%', aspectRatio: 4 / 3, backgroundColor: tokens.color.surfaceHigh }}
           contentFit="cover"
           transition={200}

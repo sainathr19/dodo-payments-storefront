@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { api } from '../../src/api/client';
 import type { Order } from '../../src/api/types';
 import { Badge } from '../../src/components/Badge';
 import { EmptyState } from '../../src/components/EmptyState';
 import { Screen } from '../../src/components/Screen';
+import * as WebBrowser from 'expo-web-browser';
 import { formatMoney } from '../../src/lib/money';
 import { useSession } from '../../src/state/session';
 import { tokens } from '../../src/theme/tokens';
@@ -85,6 +86,43 @@ export default function Orders() {
           >
             {order.id}
           </Text>
+
+          <View style={{ flexDirection: 'row', gap: tokens.space.xl, marginTop: tokens.space.md }}>
+            <Pressable
+              onPress={() => WebBrowser.openBrowserAsync(api.invoiceUrl(order.id))}
+              hitSlop={8}
+            >
+              <Text style={{ ...tokens.text.label, color: tokens.color.accent }}>Invoice</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() =>
+                // A refund cannot be undone, so it is never a single unconfirmed tap.
+                Alert.alert(
+                  'Request a refund?',
+                  `This refunds ${formatMoney(order.totalCents, order.currency)} and cannot be undone.`,
+                  [
+                    { text: 'Keep order', style: 'cancel' },
+                    {
+                      text: 'Refund',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          await api.refund(order.id);
+                          load();
+                        } catch (e) {
+                          Alert.alert('Refund failed', String(e));
+                        }
+                      },
+                    },
+                  ],
+                )
+              }
+              hitSlop={8}
+            >
+              <Text style={{ ...tokens.text.label, color: tokens.color.danger }}>Refund</Text>
+            </Pressable>
+          </View>
         </View>
       ))}
     </Screen>

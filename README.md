@@ -45,6 +45,41 @@ cloudflared tunnel --url http://localhost:8080
 Register the printed HTTPS URL, suffixed with `/webhook`, in the Dodo dashboard.
 The URL changes each time the tunnel restarts.
 
+## Verified end to end
+
+Run against Dodo test mode on 2026-09-10, through a Cloudflare tunnel, with real
+webhook signatures:
+
+| Flow | Result |
+|---|---|
+| Seed catalog, customers, promo code | 5 products, 3 customers, `PALETTE20` |
+| Promo preview | $87.00 - $17.40 = $69.60, exactly 20% |
+| Checkout and card payment | 3 payments, all `succeeded` |
+| Webhook delivery and signature check | verified, stored, typed correctly |
+| Cart cleared by `payment.succeeded` | yes, and only the paying customer's |
+| Order history, typed status filters | `succeeded` 3, `failed` 0 |
+| Invoice download | real 52K PDF |
+| Membership subscribe | active, $9.00/month |
+| Pause, resume | `active -> paused -> active` |
+| In-app checkout and deep-link return | sheet dismisses, cart refreshes |
+
+Not verified: refunds. The API returns `409 Insufficient funds in wallet` because
+a test-mode payment has not settled, so there is no balance to refund from. The
+route, its error mapping and the app's confirmation dialog are in place and the
+call reaches the API; only the API-side outcome is untested.
+
+## Two SDK findings
+
+Running this against the live API surfaced two problems in the published Rust SDK:
+
+1. **`SubscriptionsUpdateParams.pause` is stale.** Sending it returns
+   `422 pause was removed; use status: paused or status: active instead`. Anyone
+   pausing a subscription through the SDK's own field gets a 422.
+2. **`price` has two shapes.** `GET /products` returns a flat integer;
+   `GET /products/{id}` returns an object whose own `price` field holds it. One
+   field name, two types, which is why the generated `Price` is an untagged enum
+   of `serde_json::Value`.
+
 ## Design
 
 See [docs/2026-09-10-palette-design.md](docs/2026-09-10-palette-design.md) for the

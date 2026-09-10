@@ -24,6 +24,44 @@ describe('toProduct', () => {
     });
   });
 
+  // The list endpoint returns `price` as a flat integer, but the retrieve
+  // endpoint returns it as a nested object with its own `price` field. The same
+  // field name carries two different types, so the mapper must accept both or
+  // the detail screen renders NaN.
+  it('reads the nested price object the retrieve endpoint returns', () => {
+    const p = toProduct({
+      product_id: 'pdt_c',
+      name: 'Meridian',
+      description: null,
+      image: null,
+      price: {
+        currency: 'USD',
+        discount: 0,
+        price: 1200,
+        pay_what_you_want: false,
+        purchasing_power_parity: false,
+        type: 'one_time_price',
+      },
+      currency: null,
+      is_recurring: false,
+    });
+    expect(p.priceCents).toBe(1200);
+    expect(p.currency).toBe('USD');
+  });
+
+  it('still reads the flat price integer the list endpoint returns', () => {
+    const p = toProduct({
+      product_id: 'pdt_d',
+      name: 'Aurora',
+      description: null,
+      image: null,
+      price: 1900,
+      currency: 'USD',
+      is_recurring: false,
+    });
+    expect(p.priceCents).toBe(1900);
+  });
+
   it('survives the nullable fields the API declares', () => {
     const p = toProduct({
       product_id: 'pdt_b',

@@ -31,6 +31,8 @@ pub struct CustomerQuery {
 #[derive(Deserialize)]
 pub struct SubscribeBody {
     pub customer_id: String,
+    /// See `routes::checkout::CheckoutBody::return_url`.
+    pub return_url: Option<String>,
 }
 
 /// Pure: maps an action name to the update the API needs, so the mapping is
@@ -84,7 +86,8 @@ async fn subscribe(
         product_id: state.seed.membership_product_id.clone(),
         quantity: 1,
     };
-    let params = checkout_params(&[item], &b.customer_id, None, RETURN_URL);
+    let return_url = b.return_url.as_deref().unwrap_or(RETURN_URL);
+    let params = checkout_params(&[item], &b.customer_id, None, return_url);
     Ok(Json(state.dodo.checkout_sessions().create(params).await?))
 }
 

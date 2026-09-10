@@ -12,6 +12,13 @@ import {
 const USE_FIXTURES = process.env.EXPO_PUBLIC_USE_FIXTURES !== 'false';
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8080';
 
+// In live mode the demo customers must be the real ids from `backend/seed.json`,
+// or every request 404s. Supplied as a comma-separated list.
+const liveCustomerIds: string[] = String(process.env.EXPO_PUBLIC_CUSTOMER_IDS ?? '')
+  .split(',')
+  .map((part: string) => part.trim())
+  .filter((part: string) => part.length > 0);
+
 // A short delay so loading states are visible while developing on fixtures;
 // without it every screen renders instantly and skeletons are never seen.
 const settle = <T,>(value: T): Promise<T> =>
@@ -39,7 +46,10 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
 export const api = {
   usingFixtures: () => USE_FIXTURES,
 
-  customers: (): DemoCustomer[] => fixtureCustomers,
+  customers: (): DemoCustomer[] =>
+    liveCustomerIds.length
+      ? liveCustomerIds.map((id: string, i: number) => ({ ...fixtureCustomers[i], id }))
+      : fixtureCustomers,
 
   async products(): Promise<Product[]> {
     if (USE_FIXTURES) return settle(fixtureProducts);
@@ -124,9 +134,35 @@ export const api = {
     }));
   },
 
-  async checkout(customerId: string, promoCode?: string): Promise<{ checkout_url: string | null }> {
+  async checkout(
+    customerId: string,
+    promoCode?: string,
+    returnUrl?: string,
+  ): Promise<{ checkout_url: string | null }> {
     if (USE_FIXTURES) return settle({ checkout_url: null });
-    return send('/checkout', 'POST', { customer_id: customerId, promo_code: promoCode ?? null });
+    return send('/checkout', 'POST', {
+      customer_id: customerId,
+      promo_code: promoCode ?? null,
+      return_url: returnUrl ?? null,
+    });
+  },
+
+  async subscribe(
+    customerId: string,
+    returnUrl?: string,
+  ): Promise<{ checkout_url: string | null }> {
+    if (USE_FIXTURES) return settle({ checkout_url: null });
+    return send('/membership/subscribe', 'POST', {
+      customer_id: customerId,
+      return_url: returnUrl ?? null,
+    });
+  },
+
+  invoiceUrl: (paymentId: string) => `${BASE_URL}/orders/${paymentId}/invoice`,
+
+  async refund(paymentId: string) {
+    if (USE_FIXTURES) return settle({ ok: true });
+    return send(`/orders/${encodeURIComponent(paymentId)}/refund`, 'POST');
   },
 
   async membershipAction(subscriptionId: string, action: 'pause' | 'resume' | 'cancel') {
