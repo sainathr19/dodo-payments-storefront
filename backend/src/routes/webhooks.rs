@@ -17,14 +17,34 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/events", get(recent))
 }
 
-/// The SDK's tagged enum gives the event name back without re-parsing the body.
+/// The SDK's tagged enum gives the event name back without re-parsing the body,
+/// which is the whole point of the fork's `#[serde(tag = "type")]` fix: on the
+/// published SDK an untagged enum matches the first structurally-compatible
+/// variant, so `payment.succeeded` arrives as an abandoned-checkout event.
+///
+/// `UnwrapWebhookEvent` is `#[non_exhaustive]` with 48 variants; the ones this
+/// storefront can act on or display are named, and the rest fall through.
 pub fn event_name(e: &UnwrapWebhookEvent) -> &'static str {
     match e {
         UnwrapWebhookEvent::PaymentSucceededWebhookEvent(_) => "payment.succeeded",
         UnwrapWebhookEvent::PaymentFailedWebhookEvent(_) => "payment.failed",
+        UnwrapWebhookEvent::PaymentCancelledWebhookEvent(_) => "payment.cancelled",
+        UnwrapWebhookEvent::PaymentProcessingWebhookEvent(_) => "payment.processing",
         UnwrapWebhookEvent::RefundSucceededWebhookEvent(_) => "refund.succeeded",
+        UnwrapWebhookEvent::RefundFailedWebhookEvent(_) => "refund.failed",
         UnwrapWebhookEvent::SubscriptionActiveWebhookEvent(_) => "subscription.active",
+        UnwrapWebhookEvent::SubscriptionRenewedWebhookEvent(_) => "subscription.renewed",
+        UnwrapWebhookEvent::SubscriptionUpdatedWebhookEvent(_) => "subscription.updated",
+        UnwrapWebhookEvent::SubscriptionPausedWebhookEvent(_) => "subscription.paused",
+        UnwrapWebhookEvent::SubscriptionUnpausedWebhookEvent(_) => "subscription.unpaused",
         UnwrapWebhookEvent::SubscriptionCancelledWebhookEvent(_) => "subscription.cancelled",
+        UnwrapWebhookEvent::SubscriptionExpiredWebhookEvent(_) => "subscription.expired",
+        UnwrapWebhookEvent::SubscriptionFailedWebhookEvent(_) => "subscription.failed",
+        UnwrapWebhookEvent::SubscriptionOnHoldWebhookEvent(_) => "subscription.on_hold",
+        UnwrapWebhookEvent::SubscriptionPastDueWebhookEvent(_) => "subscription.past_due",
+        UnwrapWebhookEvent::SubscriptionPlanChangedWebhookEvent(_) => "subscription.plan_changed",
+        // An event type this build does not name. It was still verified and
+        // stored, so nothing is lost.
         _ => "other",
     }
 }
@@ -52,7 +72,15 @@ async fn receive(
 
     let db = state.db.lock().expect("db mutex");
     // A duplicate is still a success: Dodo must stop retrying.
-    let _first_time = store::event_log(&db, &logged).ok();
+    let first_time = store::event_log(&db, &logged).unwrap_or(false);
+
+    // Clearing only on the first delivery keeps a retry from wiping a cart the
+    // customer has since refilled.
+    if first_time {
+        if let UnwrapWebhookEvent::PaymentSucceededWebhookEvent(e) = &event {
+            let _ = store::cart_clear(&db, &e.data.customer.customer_id);
+        }
+    }
     Ok("ok")
 }
 

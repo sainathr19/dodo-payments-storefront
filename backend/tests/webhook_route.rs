@@ -112,3 +112,63 @@ async fn a_retried_delivery_is_accepted_but_stored_once() {
     let events: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(events.as_array().unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn a_successful_payment_clears_that_customers_cart() {
+    // The PAYMENT fixture's data.customer.customer_id is "cus_1".
+    let app = palette_backend::test_app_with_cart(KEY, "cus_1", "pdt_a", 2);
+
+    let res = app
+        .clone()
+        .oneshot(signed_request(PAYMENT, "msg_clear"))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/cart?customer_id=cus_1")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let cart: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        cart.as_array().unwrap().is_empty(),
+        "cart should be empty after payment, got {cart}"
+    );
+}
+
+#[tokio::test]
+async fn a_cart_belonging_to_someone_else_is_untouched() {
+    let app = palette_backend::test_app_with_cart(KEY, "cus_other", "pdt_a", 1);
+
+    app.clone()
+        .oneshot(signed_request(PAYMENT, "msg_other"))
+        .await
+        .unwrap();
+
+    let res = app
+        .oneshot(
+            Request::builder()
+                .uri("/cart?customer_id=cus_other")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let cart: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(
+        cart.as_array().unwrap().len(),
+        1,
+        "another customer's cart must survive"
+    );
+}

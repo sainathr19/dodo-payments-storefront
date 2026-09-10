@@ -3,6 +3,7 @@ name = "palette-backend"
 version = "0.1.0"
 edition = "2021"
 publish = false
+default-run = "palette-backend"
 
 [dependencies]
 dodopayments = { git = "https://github.com/sainathr19/dodopayments-rust", branch = "runtime-hardening" }

@@ -1,0 +1,43 @@
+{
+  "customers": [
+    {
+      "customer_id": "cus_example_0",
+      "email": "ada@example.com",
+      "name": "Ada Lovelace"
+    },
+    {
+      "customer_id": "cus_example_1",
+      "email": "grace@example.com",
+      "name": "Grace Hopper"
+    },
+    {
+      "customer_id": "cus_example_2",
+      "email": "alan@example.com",
+      "name": "Alan Turing"
+    }
+  ],
+  "membership_product_id": "pdt_example_membership",
+  "products": [
+    {
+      "name": "Aurora Icon Pack",
+      "price_cents": 1900,
+      "product_id": "pdt_example_0"
+    },
+    {
+      "name": "Nocturne UI Kit",
+      "price_cents": 4900,
+      "product_id": "pdt_example_1"
+    },
+    {
+      "name": "Grain LUT Collection",
+      "price_cents": 2400,
+      "product_id": "pdt_example_2"
+    },
+    {
+      "name": "Meridian Type Specimens",
+      "price_cents": 1200,
+      "product_id": "pdt_example_3"
+    }
+  ],
+  "promo_code": "PALETTE20"
+}

@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use dodopayments::{Client, Environment};
-use palette_backend::{build_router, config::Config, state::AppState, store};
+use palette_backend::{build_router, config::Config, seed::Seed, state::AppState, store};
 use rusqlite::Connection;
 
 #[tokio::main]
@@ -22,9 +22,17 @@ async fn main() -> anyhow::Result<()> {
     let db = Connection::open(&config.db_path)?;
     store::init(&db)?;
 
+    let seed = Seed::load("seed.json")?;
+    tracing::info!(
+        products = seed.products.len(),
+        customers = seed.customers.len(),
+        "seed loaded"
+    );
+
     let app = build_router(Arc::new(AppState {
         dodo,
         db: Mutex::new(db),
+        seed,
     }));
 
     let addr = format!("0.0.0.0:{}", config.port);
