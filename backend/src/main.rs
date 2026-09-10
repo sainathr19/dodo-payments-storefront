@@ -1,5 +1,6 @@
 mod config;
 mod state;
+mod store;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -26,6 +27,7 @@ async fn main() -> anyhow::Result<()> {
         .build()?;
 
     let db = Connection::open(&config.db_path)?;
+    store::init(&db)?;
 
     let state = Arc::new(AppState {
         dodo,
