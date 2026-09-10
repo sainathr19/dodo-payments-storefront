@@ -16,3 +16,15 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
 anyhow = "1"
+
+[lib]
+name = "palette_backend"
+path = "src/lib.rs"
+
+[[bin]]
+name = "palette-backend"
+path = "src/main.rs"
+
+[dev-dependencies]
+standardwebhooks = "1"
+tower = { version = "0.5", features = ["util"] }

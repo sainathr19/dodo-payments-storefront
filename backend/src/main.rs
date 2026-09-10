@@ -1,17 +1,9 @@
-mod config;
-mod error;
-mod state;
-mod store;
-
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use axum::{routing::get, Router};
 use dodopayments::{Client, Environment};
+use palette_backend::{build_router, config::Config, state::AppState, store};
 use rusqlite::Connection;
-
-use crate::config::Config;
-use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,14 +22,10 @@ async fn main() -> anyhow::Result<()> {
     let db = Connection::open(&config.db_path)?;
     store::init(&db)?;
 
-    let state = Arc::new(AppState {
+    let app = build_router(Arc::new(AppState {
         dodo,
         db: Mutex::new(db),
-    });
-
-    let app = Router::new()
-        .route("/health", get(|| async { "ok" }))
-        .with_state(state);
+    }));
 
     let addr = format!("0.0.0.0:{}", config.port);
     let listener = tokio::net::TcpListener::bind(&addr).await?;
