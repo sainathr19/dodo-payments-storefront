@@ -1,5 +1,6 @@
 import type { CartItem, DemoCustomer, Membership, Order, Product, WebhookEvent } from './types';
 import { toMembership, toOrder, toProduct } from './mappers';
+import { pickMembership } from '../lib/membership';
 import {
   fixtureCustomers,
   fixtureEvents,
@@ -121,7 +122,9 @@ export const api = {
   async membership(customerId: string): Promise<Membership | null> {
     if (USE_FIXTURES) return settle(fixtureMembership);
     const raw = await get<any[]>(`/membership?customer_id=${encodeURIComponent(customerId)}`);
-    return raw.length ? toMembership(raw[0]) : null;
+    // A customer can have several subscriptions, including failed attempts, so
+    // the live one is chosen rather than whichever the API listed first.
+    return pickMembership(raw.map(toMembership));
   },
 
   async events(): Promise<WebhookEvent[]> {

@@ -7,6 +7,15 @@ import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { Screen } from '../../src/components/Screen';
 import { checkoutReturnUrl, startCheckout } from '../../src/lib/checkout';
+import {
+  canCancel,
+  canPause,
+  canResume,
+  deadStatusMessage,
+  isLive,
+  renewalLabel,
+  statusTone,
+} from '../../src/lib/membership';
 import { formatMoney } from '../../src/lib/money';
 import { useSession } from '../../src/state/session';
 import { tokens } from '../../src/theme/tokens';
@@ -60,9 +69,27 @@ export default function Pro() {
     );
   }
 
-  const paused = membership?.status === 'paused';
-  const priceCents = membership?.amountCents ?? product?.priceCents ?? 0;
-  const currency = membership?.currency ?? product?.currency ?? 'USD';
+  // A subscription that failed, was cancelled or expired is not a membership
+  // the customer holds: it must not offer pause or cancel, and it must not
+  // claim a renewal date.
+  const live = membership !== null && isLive(membership.status);
+  const priceCents = (live ? membership?.amountCents : product?.priceCents) ?? 0;
+  const currency = (live ? membership?.currency : product?.currency) ?? 'USD';
+  const renewal = membership ? renewalLabel(membership) : null;
+
+  const subscribe = async () => {
+    setBusy(true);
+    try {
+      const { checkout_url } = await api.subscribe(customer.id, checkoutReturnUrl());
+      if (!checkout_url) throw new Error('the backend returned no checkout url');
+      await startCheckout(checkout_url);
+      await load();
+    } catch (e) {
+      Alert.alert('Could not subscribe', String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Screen>
@@ -96,9 +123,14 @@ export default function Pro() {
 
         {membership ? (
           <View style={{ flexDirection: 'row', gap: tokens.space.sm, marginTop: tokens.space.lg }}>
+            {/* A failed or cancelled status is tinted red rather than sharing
+                the same neutral pill as ACTIVE, which read as healthy. */}
             <View
               style={{
-                backgroundColor: 'rgba(255,255,255,0.2)',
+                backgroundColor:
+                  statusTone(membership.status) === 'bad'
+                    ? 'rgba(255,150,150,0.28)'
+                    : 'rgba(255,255,255,0.2)',
                 paddingHorizontal: tokens.space.md,
                 paddingVertical: 5,
                 borderRadius: tokens.radius.pill,
@@ -123,7 +155,7 @@ export default function Pro() {
           </View>
         ) : null}
 
-        {membership ? (
+        {renewal ? (
           <Text
             style={{
               ...tokens.text.body,
@@ -132,8 +164,7 @@ export default function Pro() {
               marginTop: tokens.space.md,
             }}
           >
-            {membership.cancelAtPeriodEnd ? 'Access ends' : 'Renews'}{' '}
-            {new Date(membership.nextBillingDate).toLocaleDateString()}
+            {renewal}
           </Text>
         ) : null}
       </View>
@@ -157,43 +188,54 @@ export default function Pro() {
         ))}
       </Card>
 
+      {/* Explains a failed or ended subscription instead of leaving the bare
+          status pill to be interpreted. */}
+      {membership && !live ? (
+        <Card style={{ marginTop: tokens.space.lg, backgroundColor: tokens.color.dangerSoft, borderColor: tokens.color.dangerSoft }}>
+          <View style={{ flexDirection: 'row', gap: tokens.space.md }}>
+            <Ionicons name="alert-circle" size={19} color={tokens.color.danger} />
+            <Text style={{ ...tokens.text.body, fontSize: 14, color: tokens.color.danger, flex: 1 }}>
+              {deadStatusMessage(membership.status)}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
       <View style={{ gap: tokens.space.md, marginTop: tokens.space.xl }}>
-        {!membership ? (
+        {!live ? (
           <Button
-            title="Subscribe"
+            title={membership ? 'Try again' : 'Subscribe'}
             loading={busy}
-            onPress={async () => {
-              setBusy(true);
-              try {
-                const { checkout_url } = await api.subscribe(customer.id, checkoutReturnUrl());
-                if (!checkout_url) throw new Error('the backend returned no checkout url');
-                await startCheckout(checkout_url);
-                await load();
-              } catch (e) {
-                Alert.alert('Could not subscribe', String(e));
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onPress={() => void subscribe()}
           />
-        ) : (
-          <>
-            <Button
-              title={paused ? 'Resume membership' : 'Pause membership'}
-              variant="secondary"
-              loading={busy}
-              onPress={() => void act(paused ? 'resume' : 'pause')}
-            />
-            {!membership.cancelAtPeriodEnd ? (
-              <Button
-                title="Cancel membership"
-                variant="danger"
-                loading={busy}
-                onPress={() => void act('cancel')}
-              />
-            ) : null}
-          </>
-        )}
+        ) : null}
+
+        {membership && canPause(membership) ? (
+          <Button
+            title="Pause membership"
+            variant="secondary"
+            loading={busy}
+            onPress={() => void act('pause')}
+          />
+        ) : null}
+
+        {membership && canResume(membership) ? (
+          <Button
+            title="Resume membership"
+            variant="secondary"
+            loading={busy}
+            onPress={() => void act('resume')}
+          />
+        ) : null}
+
+        {membership && canCancel(membership) ? (
+          <Button
+            title="Cancel membership"
+            variant="danger"
+            loading={busy}
+            onPress={() => void act('cancel')}
+          />
+        ) : null}
       </View>
     </Screen>
   );
