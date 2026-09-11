@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect, useState } from 'react';
-import { Alert, Pressable, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
 import { api } from '../../src/api/client';
-import type { CartItem, Product } from '../../src/api/types';
+import { ApiError, isNotFound } from '../../src/api/errors';
+import type { CartItem, CartTotals, Product } from '../../src/api/types';
 import { Button } from '../../src/components/Button';
 import { Card } from '../../src/components/Card';
 import { EmptyState } from '../../src/components/EmptyState';
@@ -19,6 +20,12 @@ export default function Cart() {
   const [products, setProducts] = useState<Product[]>([]);
   const [promo, setPromo] = useState('');
   const [busy, setBusy] = useState(false);
+  const [totals, setTotals] = useState<CartTotals | null>(null);
+  const [pricing, setPricing] = useState(false);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  // Identifies the newest request so a slow earlier response cannot overwrite
+  // the total with a stale one.
+  const requestId = useRef(0);
 
   useEffect(() => {
     api
@@ -26,6 +33,50 @@ export default function Cart() {
       .then(setProducts)
       .catch(() => setProducts([]));
   }, []);
+
+  // Dodo owns the discount rules, so the total comes from Dodo. Debounced so a
+  // preview is not requested on every keystroke.
+  useEffect(() => {
+    if (!cart.length) {
+      setTotals(null);
+      return;
+    }
+    const code = promo.trim();
+    const id = ++requestId.current;
+    setPricing(true);
+
+    const timer = setTimeout(() => {
+      api
+        .preview(customer.id, code || undefined)
+        .then((t) => {
+          if (id !== requestId.current) return;
+          setTotals(t);
+          // A code Dodo accepts but that discounts nothing still deserves
+          // saying so, rather than leaving an unchanged total unexplained.
+          setPromoError(
+            code && t.discountCents === 0 ? 'That code does not apply to this cart' : null,
+          );
+        })
+        .catch((e: unknown) => {
+          if (id !== requestId.current) return;
+          setTotals(null);
+          if (!code) {
+            setPromoError(null);
+          } else if (isNotFound(e)) {
+            // Dodo replies 404 with wording like "Discount code 'X' doesn't
+            // exist". Its message is more specific than anything generic here.
+            setPromoError(e instanceof ApiError ? e.message : 'That code is not valid');
+          } else {
+            setPromoError('Could not check that code. Check your connection.');
+          }
+        })
+        .finally(() => {
+          if (id === requestId.current) setPricing(false);
+        });
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [cart, promo, customer.id]);
 
   const lines = cart
     .map((item) => ({ item, product: products.find((p) => p.id === item.productId) }))
@@ -108,7 +159,11 @@ export default function Cart() {
           marginBottom: tokens.space.xl,
         }}
       >
-        <Ionicons name="pricetag-outline" size={17} color={tokens.color.textFaint} />
+        <Ionicons
+          name="pricetag-outline"
+          size={17}
+          color={promoError ? tokens.color.danger : tokens.color.textFaint}
+        />
         <TextInput
           value={promo}
           onChangeText={setPromo}
@@ -125,15 +180,63 @@ export default function Cart() {
             fontSize: 15,
           }}
         />
+        {pricing ? <ActivityIndicator size="small" color={tokens.color.textFaint} /> : null}
+        {!pricing && totals && totals.discountCents > 0 ? (
+          <Ionicons name="checkmark-circle" size={19} color={tokens.color.success} />
+        ) : null}
       </View>
 
+      {promoError ? (
+        <Text
+          style={{
+            ...tokens.text.caption,
+            color: tokens.color.danger,
+            marginTop: -tokens.space.md,
+            marginBottom: tokens.space.lg,
+            marginLeft: tokens.space.xs,
+          }}
+        >
+          {promoError}
+        </Text>
+      ) : null}
+
       <Card style={{ marginBottom: tokens.space.xl }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-          <Text style={{ ...tokens.text.body, color: tokens.color.textDim }}>Subtotal</Text>
-          <Text style={{ ...tokens.text.heading, color: tokens.color.text }}>
-            {formatMoney(subtotal, currency)}
-          </Text>
+        <Row
+          label="Subtotal"
+          value={formatMoney(totals?.subtotalCents ?? subtotal, totals?.currency ?? currency)}
+        />
+
+        {totals && totals.discountCents > 0 ? (
+          <Row
+            label="Discount"
+            value={`-${formatMoney(totals.discountCents, totals.currency)}`}
+            tone="good"
+          />
+        ) : null}
+
+        {totals && totals.taxCents > 0 ? (
+          <Row label="Tax" value={formatMoney(totals.taxCents, totals.currency)} />
+        ) : null}
+
+        <View
+          style={{
+            height: 1,
+            backgroundColor: tokens.color.border,
+            marginVertical: tokens.space.md,
+          }}
+        />
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ ...tokens.text.heading, color: tokens.color.text }}>Total</Text>
+          {pricing && !totals ? (
+            <ActivityIndicator size="small" color={tokens.color.textFaint} />
+          ) : (
+            <Text style={{ ...tokens.text.title, fontSize: 22, color: tokens.color.text }}>
+              {formatMoney(totals?.totalCents ?? subtotal, totals?.currency ?? currency)}
+            </Text>
+          )}
         </View>
+
         <Text
           style={{
             ...tokens.text.caption,
@@ -141,7 +244,9 @@ export default function Cart() {
             marginTop: tokens.space.sm,
           }}
         >
-          Tax is calculated by Dodo Payments at checkout.
+          {totals && totals.taxCents > 0
+            ? 'Priced by Dodo Payments.'
+            : 'Tax is calculated by Dodo Payments at checkout.'}
         </Text>
       </Card>
 
@@ -169,5 +274,38 @@ export default function Cart() {
         }}
       />
     </Screen>
+  );
+}
+
+/// One line of the money breakdown. Kept here rather than in components/ because
+/// nothing else lays money out this way.
+function Row({
+  label,
+  value,
+  tone = 'plain',
+}: {
+  label: string;
+  value: string;
+  tone?: 'plain' | 'good';
+}) {
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: tokens.space.sm,
+      }}
+    >
+      <Text style={{ ...tokens.text.body, color: tokens.color.textDim }}>{label}</Text>
+      <Text
+        style={{
+          ...tokens.text.label,
+          fontSize: 15,
+          color: tone === 'good' ? tokens.color.success : tokens.color.text,
+        }}
+      >
+        {value}
+      </Text>
+    </View>
   );
 }

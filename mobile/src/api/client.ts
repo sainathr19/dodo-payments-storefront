@@ -1,5 +1,14 @@
-import type { CartItem, DemoCustomer, Membership, Order, Product, WebhookEvent } from './types';
-import { toMembership, toOrder, toProduct } from './mappers';
+import type {
+  CartItem,
+  CartTotals,
+  DemoCustomer,
+  Membership,
+  Order,
+  Product,
+  WebhookEvent,
+} from './types';
+import { ApiError } from './errors';
+import { toMembership, toOrder, toProduct, toTotals } from './mappers';
 import { pickMembership } from '../lib/membership';
 import {
   fixtureCustomers,
@@ -30,7 +39,7 @@ const fixtureCarts: Record<string, CartItem[]> = {};
 
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw ApiError.fromBody(res.status, await res.text());
   return res.json() as Promise<T>;
 }
 
@@ -40,7 +49,7 @@ async function send<T>(path: string, method: string, body?: unknown): Promise<T>
     headers: { 'content-type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+  if (!res.ok) throw ApiError.fromBody(res.status, await res.text());
   return res.json() as Promise<T>;
 }
 
@@ -135,6 +144,35 @@ export const api = {
       type: r.event_type,
       receivedAt: r.received_at,
     }));
+  },
+
+  /// Asks Dodo what this cart actually costs, including any discount, without
+  /// charging anything. The app never computes a discount itself: the promo
+  /// rules live in Dodo, and a locally-guessed total that the checkout page then
+  /// contradicts is worse than showing no total at all.
+  async preview(customerId: string, promoCode?: string): Promise<CartTotals> {
+    if (USE_FIXTURES) {
+      const items = fixtureCarts[customerId] ?? [];
+      const all = [...fixtureProducts, fixtureMembershipProduct];
+      const subtotal = items.reduce((sum, i) => {
+        const p = all.find((x) => x.id === i.productId);
+        return p ? sum + p.priceCents * i.quantity : sum;
+      }, 0);
+      const discount = promoCode?.toUpperCase() === 'PALETTE20' ? Math.round(subtotal * 0.2) : 0;
+      return settle({
+        subtotalCents: subtotal,
+        discountCents: discount,
+        taxCents: 0,
+        totalCents: subtotal - discount,
+        currency: 'USD',
+      });
+    }
+    return toTotals(
+      await send<any>('/cart/preview', 'POST', {
+        customer_id: customerId,
+        promo_code: promoCode ?? null,
+      }),
+    );
   },
 
   async checkout(

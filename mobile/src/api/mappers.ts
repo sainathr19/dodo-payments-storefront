@@ -1,4 +1,4 @@
-import type { Membership, Order, Product } from './types';
+import type { CartTotals, Membership, Order, Product } from './types';
 
 // `GET /products` returns `price` as a flat integer of minor units, while
 // `GET /products/{id}` returns it as an object whose own `price` field holds
@@ -51,5 +51,20 @@ export function toMembership(raw: any): Membership {
     amountCents: raw.recurring_pre_tax_amount,
     currency: raw.currency ?? 'USD',
     cancelAtPeriodEnd: Boolean(raw.cancel_at_next_billing_date),
+  };
+}
+
+/// Dodo returns the money breakdown under `current_breakup`. `tax` is null
+/// until a billing country is known, which is the normal case for a preview
+/// taken before checkout, so it is read as zero rather than propagating NaN
+/// through the total.
+export function toTotals(raw: any): CartTotals {
+  const b = raw?.current_breakup ?? {};
+  return {
+    subtotalCents: b.subtotal ?? 0,
+    discountCents: b.discount ?? 0,
+    taxCents: b.tax ?? 0,
+    totalCents: b.total_amount ?? 0,
+    currency: raw?.currency ?? 'USD',
   };
 }

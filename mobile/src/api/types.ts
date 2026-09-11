@@ -35,3 +35,11 @@ export type WebhookEvent = {
 };
 
 export type DemoCustomer = { id: string; name: string; email: string };
+
+export type CartTotals = {
+  subtotalCents: number;
+  discountCents: number;
+  taxCents: number;
+  totalCents: number;
+  currency: string;
+};
