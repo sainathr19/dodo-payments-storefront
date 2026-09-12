@@ -7,8 +7,8 @@
 use std::time::Duration;
 
 use dodopayments::models::{
-    CustomersCreateParams, DiscountType, DiscountsCreateParams, Price, ProductListResponse,
-    ProductsCreateParams, TaxCategory,
+    Currency, CustomersCreateParams, DiscountType, DiscountsCreateParams, OneTimePrice, Price,
+    ProductListResponse, ProductsCreateParams, RecurringPrice, TaxCategory, TimeInterval,
 };
 use dodopayments::{Client, Environment};
 use serde_json::json;
@@ -87,17 +87,9 @@ async fn main() -> anyhow::Result<()> {
             }));
             continue;
         }
-        // `Price` is an untagged enum of three `serde_json::Value` variants in the
-        // current SDK, so the shape has to be written by hand. This file is the
-        // only place in the project that does so.
-        let price = Price::Variant0(json!({
-            "type": "one_time_price",
-            "price": cents,
-            "currency": "USD",
-            "discount": 0,
-            "purchasing_power_parity": false,
-            "tax_inclusive": true
-        }));
+        let mut one_time = OneTimePrice::new(*cents, Currency::Usd);
+        one_time.tax_inclusive = Some(true);
+        let price = Price::OneTimePrice(Box::new(one_time));
         let mut params = ProductsCreateParams::new(*name, price, TaxCategory::DigitalProducts);
         params.description = Some(description.to_string());
         let created = dodo.products().create(params).await?;
@@ -113,19 +105,10 @@ async fn main() -> anyhow::Result<()> {
             found.product_id.clone()
         }
         None => {
-            let price = Price::Variant0(json!({
-                "type": "recurring_price",
-                "price": MEMBERSHIP.1,
-                "currency": "USD",
-                "discount": 0,
-                "payment_frequency_count": 1,
-                "payment_frequency_interval": "Month",
-                "subscription_period_count": 1,
-                "subscription_period_interval": "Month",
-                "purchasing_power_parity": false,
-                "tax_inclusive": true,
-                "trial_period_days": 0
-            }));
+            let mut recurring =
+                RecurringPrice::new(MEMBERSHIP.1, Currency::Usd, TimeInterval::Month);
+            recurring.tax_inclusive = Some(true);
+            let price = Price::RecurringPrice(Box::new(recurring));
             let mut params =
                 ProductsCreateParams::new(MEMBERSHIP.0, price, TaxCategory::DigitalProducts);
             params.description = Some(MEMBERSHIP.2.to_string());

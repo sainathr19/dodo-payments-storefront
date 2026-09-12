@@ -79,19 +79,30 @@ name table covered `subscription.updated` and `subscription.renewed`. The SDK
 decoded them correctly at the time; only the display label was missing, and
 stored rows are left as they were rather than rewritten.
 
-## Two SDK findings
+## What this surfaced in the SDK
 
-Running this against the live API surfaced two problems in the published Rust SDK:
+Running a real storefront against the live API found problems no amount of
+source review would have: the code had to actually send and receive things.
+All of these are now fixed in the fork this depends on.
 
-1. **`SubscriptionsUpdateParams.pause` is stale.** Sending it returns
-   `422 pause was removed; use status: paused or status: active instead`. Anyone
-   pausing a subscription through the SDK's own field gets a 422.
-2. **`price` has two shapes.** `GET /products` returns a flat integer;
-   `GET /products/{id}` returns an object whose own `price` field holds it. One
-   field name, two types, which is why the generated `Price` is an untagged enum
-   of `serde_json::Value`. A client that handles only the list shape renders
-   `NaN` on the detail screen, which is exactly what this app did until the
-   mapper was taught both.
+| Found | Fixed in |
+|---|---|
+| `SubscriptionsUpdateParams.pause` was stale &mdash; sending it returns `422 pause was removed; use status: paused or status: active instead` | [`4fbd82d`](https://github.com/sainathr19/dodopayments-rust/commit/4fbd82d) |
+| 23 of 48 webhook events handed back `serde_json::Value` instead of a typed payload | [`a2d7c2c`](https://github.com/sainathr19/dodopayments-rust/commit/a2d7c2c) |
+| `Price` was an untagged union of three `Value`s, so a recurring price read as a one-time one &mdash; the spec declares `discriminator: type` and the generator ignored it | [`ecc5653`](https://github.com/sainathr19/dodopayments-rust/commit/ecc5653) |
+| Fieldless enums like `Currency` were boxed 49 times &mdash; a heap allocation to hold one byte | [`681d502`](https://github.com/sainathr19/dodopayments-rust/commit/681d502) |
+
+Two of those bit this codebase directly. The seed script used to build prices as
+hand-written JSON because `Price` could not be constructed any other way; it now
+goes through `OneTimePrice::new` and `RecurringPrice::new`. The mobile app
+rendered `NaN` on the product detail screen, because `GET /products` returns
+`price` as a flat integer while `GET /products/{id}` returns an object wrapping
+it &mdash; one field name, two types.
+
+Also worth reporting upstream: Dodo's own spec marks `integration_type` and
+`metadata` as required on `EntitlementGrantResponse`, but every one of their
+documented `entitlement_grant.*` webhook examples omits both, so a client that
+follows the schema rejects the payload the docs publish.
 
 ## Design
 

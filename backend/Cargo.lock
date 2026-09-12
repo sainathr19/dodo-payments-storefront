@@ -179,7 +179,7 @@ dependencies = [
 [[package]]
 name = "dodopayments"
 version = "1.116.0"
-source = "git+https://github.com/sainathr19/dodopayments-rust?branch=runtime-hardening#1158d68af72ab1d33ffbaf10c9255094af34c630"
+source = "git+https://github.com/sainathr19/dodopayments-rust?branch=runtime-hardening#ecc5653eecb0fadf26c9123ef1fb5bc7e20a3e68"
 dependencies = [
  "futures",
  "httpdate",

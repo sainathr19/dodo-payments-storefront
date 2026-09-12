@@ -116,8 +116,10 @@ async fn act(
 mod tests {
     use super::*;
 
-    /// The API removed the `pause` boolean; sending it returns 422. These two
-    /// tests pin the replacement so a future edit cannot quietly reintroduce it.
+    /// The API removed the `pause` boolean; sending it returns 422. The SDK no
+    /// longer exposes the field at all, so reintroducing it is now a compile
+    /// error rather than something a test has to catch. These pin the
+    /// replacement behaviour.
     #[test]
     fn pause_sets_the_status_to_paused_and_never_the_removed_flag() {
         let p = update_for_action("pause").unwrap();
@@ -125,7 +127,6 @@ mod tests {
             p.status.as_deref(),
             Some(SubscriptionStatus::Paused)
         ));
-        assert_eq!(p.pause, None, "the removed `pause` field must not be sent");
         assert_eq!(p.cancel_at_next_billing_date, None);
     }
 
@@ -136,14 +137,16 @@ mod tests {
             p.status.as_deref(),
             Some(SubscriptionStatus::Active)
         ));
-        assert_eq!(p.pause, None, "the removed `pause` field must not be sent");
     }
 
     #[test]
     fn cancel_schedules_the_end_rather_than_stopping_now() {
         let p = update_for_action("cancel").unwrap();
         assert_eq!(p.cancel_at_next_billing_date, Some(true));
-        assert_eq!(p.pause, None);
+        assert!(
+            p.status.is_none(),
+            "cancelling must not also force a status"
+        );
     }
 
     #[test]
